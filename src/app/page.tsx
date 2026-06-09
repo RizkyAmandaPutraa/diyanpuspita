@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, Search, Activity, AlertTriangle, CheckCircle, Zap, Database, Code, Key, ShieldAlert, Network, Cookie, FileText, Lock, Server, Settings, Users, FileDown, X, BookOpen } from "lucide-react";
+import { Shield, Search, Activity, AlertTriangle, CheckCircle, Zap, Database, Code, Key, ShieldAlert, Network, Cookie, FileText, Lock, Server, Settings, Users, FileDown, X } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 // Initialize Supabase client
@@ -127,7 +127,7 @@ export default function Home() {
         setLogs((prev) => [...prev, { msg: '> Error initiating scan', isError: true }]);
         setIsScanning(false);
       }
-    } catch (error) {
+    } catch {
       setLogs((prev) => [...prev, { msg: '> Network error starting scan', isError: true }]);
       setIsScanning(false);
     }
@@ -243,7 +243,7 @@ export default function Home() {
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.setFont('helvetica', 'italic');
-    const totalPages = (doc.internal as any).getNumberOfPages();
+    const totalPages = doc.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
       doc.text(`Halaman ${i} dari ${totalPages}  |  Laporan dibuat otomatis oleh Testing System Security Audit`, pageWidth / 2, 290, { align: 'center' });
@@ -401,7 +401,7 @@ export default function Home() {
     });
 
     // Footer setiap halaman
-    const totalPages = (doc.internal as any).getNumberOfPages();
+    const totalPages = doc.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
       doc.setFillColor(241, 245, 249);
@@ -438,6 +438,13 @@ export default function Home() {
             >
               <FileDown className="w-4 h-4" />
               Export PDF
+            </button>
+            <button 
+              onClick={exportTechPDF}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-cyan-300 border border-cyan-500/40 rounded-md hover:bg-cyan-500/10 transition-colors"
+            >
+              <FileDown className="w-4 h-4" />
+              Dokumentasi
             </button>
           </div>
         </div>

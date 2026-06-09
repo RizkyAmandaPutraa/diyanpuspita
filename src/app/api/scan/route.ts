@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
+type ModuleUpdate = { id: string; status: string };
+
 export async function POST(req: Request) {
   try {
     const { targetUrl } = await req.json();
@@ -15,7 +17,7 @@ export async function POST(req: Request) {
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const emitUpdate = async (progress: number, msg: string, moduleUpdate?: any) => {
+    const emitUpdate = async (progress: number, msg: string, moduleUpdate?: ModuleUpdate) => {
       await supabase.channel('scan_events').send({
         type: 'broadcast',
         event: 'scan_update',
@@ -25,12 +27,28 @@ export async function POST(req: Request) {
 
     // Run in background
     (async () => {
+      const moduleStatuses: Record<string, string> = {};
+      const sendComplete = async (payload: {
+        message: string;
+        score: number;
+        findings: { id: number; moduleId: string; type: string; severity: string }[];
+        pagesScanned: number;
+      }) => {
+        await supabase.channel('scan_events').send({
+          type: 'broadcast',
+          event: 'scan_complete',
+          payload: {
+            ...payload,
+            moduleStatuses
+          }
+        });
+      };
+      const updateModule = async (id: string, status: string, progress: number, msg: string) => {
+         moduleStatuses[id] = status;
+         await emitUpdate(progress, msg, { id, status });
+      };
+
       try {
-        const moduleStatuses: Record<string, string> = {};
-        const updateModule = async (id: string, status: string, progress: number, msg: string) => {
-           moduleStatuses[id] = status;
-           await emitUpdate(progress, msg, { id, status });
-        };
 
         await updateModule('crawl', 'scanning', 5, `Initiating crawl for ${targetUrl}`);
         
@@ -38,8 +56,15 @@ export async function POST(req: Request) {
         try {
           response = await axios.get(targetUrl, { timeout: 10000, validateStatus: () => true });
           await updateModule('crawl', 'passed', 10, `Crawl successful for ${targetUrl}`);
-        } catch (e: any) {
-          await updateModule('crawl', 'failed', 100, `Failed to reach target: ${e.message}`);
+        } catch (e: unknown) {
+          const message = e instanceof Error ? e.message : 'Unknown error';
+          await updateModule('crawl', 'failed', 100, `Failed to reach target: ${message}`);
+          await sendComplete({
+            message: `Scan failed: ${message}`,
+            score: 0,
+            findings: [],
+            pagesScanned: 0
+          });
           return;
         }
 
@@ -120,26 +145,28 @@ export async function POST(req: Request) {
 
         score = Math.max(0, score);
 
-        await supabase.channel('scan_events').send({
-          type: 'broadcast',
-          event: 'scan_complete',
-          payload: { 
-            message: 'Scan finished successfully', 
-            score, 
-            findings,
-            pagesScanned: 1,
-            moduleStatuses
-          }
+        await sendComplete({
+          message: 'Scan finished successfully',
+          score,
+          findings,
+          pagesScanned: 1
         });
 
-      } catch (error: any) {
-        await emitUpdate(100, `Error during scan: ${error.message}`);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        await emitUpdate(100, `Error during scan: ${message}`);
+        await sendComplete({
+          message: `Scan failed: ${message}`,
+          score: 0,
+          findings: [],
+          pagesScanned: 0
+        });
       }
     })();
 
     return NextResponse.json({ success: true, message: 'Scan initiated' });
 
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
