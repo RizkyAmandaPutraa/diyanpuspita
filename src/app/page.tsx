@@ -415,6 +415,7 @@ export default function Home() {
 
     doc.save('dokumentasi-teknologi-testing-system.pdf');
   };
+  void exportTechPDF;
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-cyan-500/30">
@@ -438,13 +439,6 @@ export default function Home() {
             >
               <FileDown className="w-4 h-4" />
               Export PDF
-            </button>
-            <button 
-              onClick={exportTechPDF}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-cyan-300 border border-cyan-500/40 rounded-md hover:bg-cyan-500/10 transition-colors"
-            >
-              <FileDown className="w-4 h-4" />
-              Dokumentasi
             </button>
           </div>
         </div>
